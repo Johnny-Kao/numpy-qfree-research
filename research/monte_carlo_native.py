@@ -34,8 +34,8 @@ for seed in (22,73,32895):
                         t=time.perf_counter_ns()
                         for k in range(loops):got=np.searchsorted(a,v,side=side)
                         samples.append((time.perf_counter_ns()-t)/loops)
-                    # Correctness against independently specified values.
-                    if pattern=="ordered_local":assert np.all(got>=0)
-                    assert np.array_equal(a[np.minimum(got,n-1)]>=v, np.where(got==n,False,True)) if False else True
+                    # Independent oracle for a = arange(n), including duplicates and bounds.
+                    expected=np.clip(v+(1 if side=="right" else 0),0,n)
+                    assert np.array_equal(got,expected), (mode,seed,n,q,pattern,side)
                     cases.append(dict(seed=seed,n=n,q=q,pattern=pattern,side=side,ns=statistics.median(samples)))
 print(json.dumps({"mode":mode,"cases":cases}))
