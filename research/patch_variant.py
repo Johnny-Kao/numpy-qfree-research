@@ -112,5 +112,53 @@ if mode=="rejectforced":
     needle="    if (!reversed && direction >= 0 && interval_length > 1) {"
     assert s.count(needle)==1
     s=s.replace(needle,"    volatile bool allow_locality = false;\n    if (allow_locality && !reversed && direction >= 0 && interval_length > 1) {",1)
+if mode in ("precheck","coarse_reuse","work_reduction"):
+    # Query-space anchor check before any batched passes. No Q threshold.
+    needle="""    binsearch_locality<Tag, side>(arr, key, ret, arr_len, key_len, arr_str,
+                                  key_str, ret_str);"""
+    pre="""    bool precheck_ok = true;
+    const npy_intp sample_last = key_len - 1;
+    T previous_sample = *(const T *)key;
+    for (npy_intp j = 1; j <= 16; ++j) {
+        const npy_intp idx = (j * sample_last) >> 4;
+        const T current = *(const T *)(key + idx * key_str);
+        const T neighbor = *(const T *)(key + (idx - 1) * key_str);
+        if (Tag::less(current, previous_sample) ||
+                Tag::less(current, neighbor)) {
+            precheck_ok = false;
+            break;
+        }
+        previous_sample = current;
+    }
+    if (!precheck_ok) {
+        binsearch_current<Tag, side>(arr, key, ret, arr_len, key_str == 0 ? arr_str : arr_str,
+                                     key_str, ret_str);
+        return;
+    }
+
+"""
+    # Use unchanged original arguments for the fallback.
+    pre=pre.replace("key_str == 0 ? arr_str : arr_str","arr_str")
+    assert s.count(needle)==1
+    s=s.replace(needle,pre+needle)
+    if mode in ("coarse_reuse","work_reduction"):
+        gate="    if (!reversed && direction >= 0 && interval_length > 1) {"
+        assert s.count(gate)==1
+        # Coarse reuse: at least two adjacent sampled anchors must share a bucket.
+        # Work reduction: all sampled anchors share a coarse bucket, an
+        # especially conservative indication of low search-position spread.
+        check = """    bool useful_coarse = false;
+    npy_intp previous_coarse = *(npy_intp *)ret;
+    for (npy_intp j = 1; j <= LOCALITY_SAMPLES; ++j) {
+        const npy_intp idx = (j * last) >> 4;
+        const npy_intp current_coarse =
+                *(npy_intp *)(ret + idx * ret_str);
+        if (current_coarse == previous_coarse) useful_coarse = true;
+        previous_coarse = current_coarse;
+    }
+"""
+        if mode=="work_reduction":
+            check=check.replace("bool useful_coarse = false;","bool useful_coarse = true;").replace("if (current_coarse == previous_coarse) useful_coarse = true;","if (current_coarse != previous_coarse) useful_coarse = false;")
+        s=s.replace(gate,check+"    if (useful_coarse && !reversed && direction >= 0 && interval_length > 1) {",1)
 p.write_text(s)
 print(f"patched {mode}: {p}")
