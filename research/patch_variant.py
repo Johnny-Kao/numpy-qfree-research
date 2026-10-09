@@ -158,5 +158,43 @@ if mode in ("precheck","coarse_reuse","work_reduction"):
         if mode=="work_reduction":
             check=check.replace("bool useful_coarse = false;","bool useful_coarse = true;").replace("if (current_coarse == previous_coarse) useful_coarse = true;","if (current_coarse != previous_coarse) useful_coarse = false;")
         s=s.replace(gate,check+"    if (useful_coarse && !reversed && direction >= 0 && interval_length > 1) {",1)
+if mode=="equal_only":
+    # Exact allowlist: all queries must be comparator-equivalent.
+    # Three anchor checks reject typical nonmatches before an O(Q) verification.
+    start=s.index("    constexpr npy_intp LOCALITY_MIN_KEYS =")
+    end=s.index("\n}",start)
+    replacement="""    if (key_len > 1 &&
+            key_str == (npy_intp)sizeof(T)) {
+        const T first = *(const T *)key;
+        const npy_intp middle = key_len >> 1;
+        const T mid = *(const T *)(key + middle * key_str);
+        const T last_value = *(const T *)(key + (key_len - 1) * key_str);
+        const bool anchor_equal =
+                !Tag::less(first, mid) && !Tag::less(mid, first) &&
+                !Tag::less(first, last_value) && !Tag::less(last_value, first);
+        if (anchor_equal) {
+            bool all_equal = true;
+            for (npy_intp i = 1; i < key_len; ++i) {
+                const T val = *(const T *)(key + i * key_str);
+                if (Tag::less(val, first) || Tag::less(first, val)) {
+                    all_equal = false;
+                    break;
+                }
+            }
+            if (all_equal) {
+                binsearch_current<Tag, side>(arr, key, ret, arr_len, 1,
+                                             arr_str, key_str, ret_str);
+                const npy_intp answer = *(npy_intp *)ret;
+                for (npy_intp i = 1; i < key_len; ++i) {
+                    *(npy_intp *)(ret + i * ret_str) = answer;
+                }
+                return;
+            }
+        }
+    }
+    binsearch_current<Tag, side>(arr, key, ret, arr_len, key_len,
+                                 arr_str, key_str, ret_str);
+"""
+    s=s[:start]+replacement+s[end:]
 p.write_text(s)
 print(f"patched {mode}: {p}")
