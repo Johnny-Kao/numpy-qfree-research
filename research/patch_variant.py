@@ -107,5 +107,10 @@ if mode=="variation":
 
 """
     s=s.replace(needle,additional+needle)
+if mode=="rejectforced":
+    # Execute the existing selector but prohibit the locality path.
+    needle="    if (!reversed && direction >= 0 && interval_length > 1) {"
+    assert s.count(needle)==1
+    s=s.replace(needle,"    if (false && !reversed && direction >= 0 && interval_length > 1) {",1)
 p.write_text(s)
 print(f"patched {mode}: {p}")
