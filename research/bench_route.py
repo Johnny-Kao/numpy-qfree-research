@@ -12,7 +12,7 @@ for n in (4096,65536):
     v[q//2]=n//2+1
    elif pattern=="anchors_equal_hidden":
     v=np.full(q,n//2,dtype=np.int64)
-    v[q//4:n//4 if False else q//4+max(1,q//8)]=n//2+1
+    v[q//4:q//4+max(1,q//8)]=n//2+1
    elif pattern=="ordered_local":v=np.full(q,n//2,dtype=np.int64)+(np.arange(q,dtype=np.int64)*8//q)
    elif pattern=="random":v=rng.integers(0,n,size=q,dtype=np.int64)
    elif pattern=="alternating":v=np.where(np.arange(q)%2,n-1,0).astype(np.int64)
