@@ -45,5 +45,13 @@ if mode=="baseline":
     replacement="""    binsearch_current<Tag, side>(arr, key, ret, arr_len, key_len, arr_str,
                                  key_str, ret_str);"""
     s=s[:start]+replacement+s[end:]
+if mode=="strict":
+    # Require all deterministic coarse anchors to share the same three-pass
+    # bracket. This is a sufficient signal for a *candidate*, not a proof:
+    # unsampled queries may still differ; their correctness is protected by
+    # per-query refinement.
+    needle="    if (!reversed && direction >= 0 && interval_length > 1) {"
+    assert s.count(needle)==1
+    s=s.replace(needle,"    if (!reversed && direction == 0 && interval_length > 1) {",1)
 p.write_text(s)
 print(f"patched {mode}: {p}")
