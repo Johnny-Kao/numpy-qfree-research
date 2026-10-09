@@ -42,7 +42,7 @@ jobs:
           for mode in baseline noq strict; do
             PYTHONPATH="/tmp/np-$mode" python -m pytest --pyargs numpy._core.tests.test_multiarray -k searchsorted -q
           done
-          for mode in baseline noq strict bounded noq baseline; do
+          for mode in baseline noq strict strict noq baseline; do
             PYTHONPATH="/tmp/np-$mode" python "$GITHUB_WORKSPACE/research/monte_carlo_native.py" "$mode" >> /tmp/multiseed.jsonl
           done
           python "$GITHUB_WORKSPACE/research/compare_strict.py" /tmp/multiseed.jsonl
