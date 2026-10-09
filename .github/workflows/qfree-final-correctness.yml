@@ -1,0 +1,42 @@
+name: Q-free final correctness signoff
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  native:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 65
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Print CPU and install build dependencies
+        run: |
+          lscpu | grep -E 'Model name|Vendor ID|CPU\(s\)'
+          python -m pip install 'meson-python>=0.20' 'Cython>=3.1' ninja pytest hypothesis
+      - name: Fetch pinned study source
+        run: |
+          git clone --filter=blob:none --no-checkout https://github.com/Johnny-Kao/numpy.git /tmp/numpy-source
+          git -C /tmp/numpy-source checkout 8318e2ab15b2a111a9a2e8fcbab937827bf88f91
+          git -C /tmp/numpy-source submodule update --init --recursive
+      - name: Build three isolated native variants
+        run: |
+          for mode in baseline equal_only; do
+            cp -a /tmp/numpy-source "/tmp/numpy-$mode"
+            python research/patch_variant.py "$mode" "/tmp/numpy-$mode/numpy/_core/src/npysort/binsearch.cpp"
+            mkdir -p "/tmp/wheel-$mode" "/tmp/np-$mode"
+            python -m pip wheel "/tmp/numpy-$mode" --no-build-isolation --no-deps -w "/tmp/wheel-$mode" -Csetup-args=-Dallow-noblas=true
+            python -m pip install --no-deps --target "/tmp/np-$mode" "/tmp/wheel-$mode/"*.whl
+          done
+      - name: Upstream focused tests and randomized differential correctness
+        run: |
+          cd /tmp
+          for mode in baseline equal_only; do
+            PYTHONPATH="/tmp/np-$mode" python -m pytest --pyargs numpy._core.tests.test_multiarray -k searchsorted -q
+          done
+          PYTHONPATH=/tmp/np-baseline python "$GITHUB_WORKSPACE/research/signoff_correctness.py" baseline /tmp/signoff-original.json
+          PYTHONPATH=/tmp/np-equal_only python "$GITHUB_WORKSPACE/research/signoff_correctness.py" equal_only /tmp/signoff-original.json
