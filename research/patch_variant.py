@@ -131,14 +131,12 @@ if mode in ("precheck","coarse_reuse","work_reduction"):
         previous_sample = current;
     }
     if (!precheck_ok) {
-        binsearch_current<Tag, side>(arr, key, ret, arr_len, key_str == 0 ? arr_str : arr_str,
+        binsearch_current<Tag, side>(arr, key, ret, arr_len, key_len, arr_str,
                                      key_str, ret_str);
         return;
     }
 
 """
-    # Use unchanged original arguments for the fallback.
-    pre=pre.replace("key_str == 0 ? arr_str : arr_str","arr_str")
     assert s.count(needle)==1
     s=s.replace(needle,pre+needle)
     if mode in ("coarse_reuse","work_reduction"):
