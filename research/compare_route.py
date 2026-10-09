@@ -21,3 +21,10 @@ for name,items in groups.items():
 for p in ("repeated","near_equal","anchors_equal_hidden","ordered_local","random","alternating","deceptive"):
  vals=[speed for k,speed in groups["all"] if k[2]==p]
  print("PATTERN",p,"median",round(statistics.median(vals),4),"min",round(min(vals),4),"regress_gt5",sum(x<.95 for x in vals))
+
+print("PER_CASE_HEADER pattern n q side route baseline_ns pr_ns speedup")
+for k in sorted(d):
+ v=d[k]
+ base=statistics.median(v["baseline"])
+ post=statistics.median(v["equal_only"])
+ print("PER_CASE",k[2],k[0],k[1],k[3],routes[k],round(base,1),round(post,1),round(base/post,4))
