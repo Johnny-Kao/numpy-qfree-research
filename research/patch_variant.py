@@ -82,5 +82,30 @@ if mode=="rejectfirst":
 """
     assert s.count(needle)==1,"predecessor check mismatch"
     s=s.replace(needle,replacement)
+if mode=="variation":
+    # Conservative rejector: coarse-anchor direction plus original-query
+    # predecessor, midpoint, and cross-sample directional variation.
+    needle="""    if (!reversed && direction >= 0 && interval_length > 1) {"""
+    assert s.count(needle)==1
+    additional="""    if (!reversed && direction >= 0) {
+        T prior = *(const T *)key;
+        for (npy_intp j = 0; j < LOCALITY_SAMPLES; ++j) {
+            const npy_intp lo = (j * last) >> 4;
+            const npy_intp hi = ((j + 1) * last) >> 4;
+            const npy_intp mid = lo + ((hi - lo) >> 1);
+            const T start = *(const T *)(key + lo * key_str);
+            const T middle = *(const T *)(key + mid * key_str);
+            const T finish = *(const T *)(key + hi * key_str);
+            if (less(start, prior) || less(middle, start) ||
+                    less(finish, middle)) {
+                reversed = true;
+                break;
+            }
+            prior = finish;
+        }
+    }
+
+"""
+    s=s.replace(needle,additional+needle)
 p.write_text(s)
 print(f"patched {mode}: {p}")
