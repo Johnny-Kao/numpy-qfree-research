@@ -28,5 +28,16 @@ if mode=="fused":
     cond="if (!reversed && direction >= 0 && interval_length > 1)"
     assert s.count(cond)==1
     s=s.replace(cond,"if (!reversed && !globally_reversed && direction >= 0 && interval_length > 1)")
+if mode=="bounded":
+    # Limit extra galloping probes, but preserve binary search over the
+    # remaining valid bracket. The standard binary completion stays intact.
+    start=s.index("binsearch_locality(")
+    gallop=s.find("                    while (true) {",start)
+    assert gallop>=0,"galloping loop not found"
+    s=s[:gallop]+s[gallop:].replace(
+        "                    while (true) {",
+        "                    for (int gallop_probe = 0; gallop_probe < 2; ++gallop_probe) {",
+        1
+    )
 p.write_text(s)
 print(f"patched {mode}: {p}")
