@@ -53,5 +53,34 @@ if mode=="strict":
     needle="    if (!reversed && direction >= 0 && interval_length > 1) {"
     assert s.count(needle)==1
     s=s.replace(needle,"    if (!reversed && direction == 0 && interval_length > 1) {",1)
+if mode=="rejectfirst":
+    # Check monotonicity across sampled keys and each sampled predecessor.
+    needle="""        for (npy_intp j = 0; j <= LOCALITY_SAMPLES && !reversed; ++j) {
+            const npy_intp i = (j * last) >> 4;
+            if (i > 0) {
+                const T key_val = *(const T *)(key + i * key_str);
+                const T prev_key_val =
+                        *(const T *)(key + (i - 1) * key_str);
+                if (less(key_val, prev_key_val)) {
+                    reversed = true;
+                }
+            }
+        }
+"""
+    replacement="""        T prev_sample_val = *(const T *)key;
+        for (npy_intp j = 1; j <= LOCALITY_SAMPLES && !reversed; ++j) {
+            const npy_intp i = (j * last) >> 4;
+            const T key_val = *(const T *)(key + i * key_str);
+            const T prev_key_val =
+                    *(const T *)(key + (i - 1) * key_str);
+            if (less(key_val, prev_key_val) ||
+                    less(key_val, prev_sample_val)) {
+                reversed = true;
+            }
+            prev_sample_val = key_val;
+        }
+"""
+    assert s.count(needle)==1,"predecessor check mismatch"
+    s=s.replace(needle,replacement)
 p.write_text(s)
 print(f"patched {mode}: {p}")
