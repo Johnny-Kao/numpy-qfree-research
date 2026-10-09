@@ -2,7 +2,7 @@ import pathlib,sys
 mode=sys.argv[1]
 p=pathlib.Path(sys.argv[2])
 s=p.read_text()
-assert s.count("NPY_LOCALITY_Q_STUDY")==1, s.count("NPY_LOCALITY_Q_STUDY")
+assert s.count("NPY_LOCALITY_Q_STUDY")==2, s.count("NPY_LOCALITY_Q_STUDY")
 s=s.replace("NPY_LOCALITY_Q_STUDY", "1048576" if mode=="q20" else "17")
 if mode=="fused":
     pattern="""    const T mid_val = *(const T *)(arr + half * arr_str);
