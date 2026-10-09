@@ -196,5 +196,41 @@ if mode=="equal_only":
                                  arr_str, key_str, ret_str);
 """
     s=s[:start]+replacement+s[end:]
+if mode in ("merge2","merge3"):
+    # Replace only the existing batched search core, not the locality selector.
+    # The remaining 2 or 3 binary decisions are performed per query.
+    start=s.index("binsearch_current(")
+    end=s.index("\ntemplate <class Tag, side_t side>",start)
+    section=s[start:end]
+    needle="    while (interval_length > 1) {"
+    assert needle in section
+    section=section.replace(needle,"    while (interval_length > "+("2" if mode=="merge2" else "4")+") {",1)
+    tail="""    for (npy_intp i = 0; i < key_len; ++i) {
+        npy_intp &base = *(npy_intp *)(ret + i * ret_str);
+        const T key_val = *(const T *)(key + i * key_str);
+        base += cmp(*(const T *)(arr + base * arr_str), key_val);
+    }
+"""
+    assert tail in section
+    replacement="""    for (npy_intp i = 0; i < key_len; ++i) {
+        npy_intp &base = *(npy_intp *)(ret + i * ret_str);
+        const T key_val = *(const T *)(key + i * key_str);
+        npy_intp remaining = interval_length;
+        while (remaining > 1) {
+            const npy_intp step = remaining >> 1;
+            remaining -= step;
+            const T pivot = *(const T *)(arr + (base + step) * arr_str);
+            base += cmp(pivot, key_val) * step;
+        }
+        base += cmp(*(const T *)(arr + base * arr_str), key_val);
+    }
+"""
+    section=section.replace(tail,replacement,1)
+    s=s[:start]+section+s[end:]
+    # Use modified batched search for all inputs; do not invoke selector.
+    start=s.index("    constexpr npy_intp LOCALITY_MIN_KEYS =")
+    end=s.index("\n}",start)
+    s=s[:start]+"""    binsearch_current<Tag, side>(arr, key, ret, arr_len, key_len,
+                                 arr_str, key_str, ret_str);"""+s[end:]
 p.write_text(s)
 print(f"patched {mode}: {p}")
