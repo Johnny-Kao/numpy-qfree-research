@@ -39,5 +39,11 @@ if mode=="bounded":
         "                    for (int gallop_probe = 0; gallop_probe < 2; ++gallop_probe) {",
         1
     )
+if mode=="baseline":
+    start=s.index("    constexpr npy_intp LOCALITY_MIN_KEYS =")
+    end=s.index("\n}",start)
+    replacement="""    binsearch_current<Tag, side>(arr, key, ret, arr_len, key_len, arr_str,
+                                 key_str, ret_str);"""
+    s=s[:start]+replacement+s[end:]
 p.write_text(s)
 print(f"patched {mode}: {p}")
